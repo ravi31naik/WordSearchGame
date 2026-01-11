@@ -1,0 +1,38 @@
+﻿@page "/"
+@using WordSearchGame.UI.Components
+@rendermode InteractiveServer
+
+<PageTitle>Word Search Game</PageTitle>
+
+<div style="width: 100%; height: 100%;">
+    @if (_gameState == GameState.Menu)
+    {
+        <MainMenu OnGameStart="StartGame" />
+    }
+    else if (_gameState == GameState.Playing)
+    {
+        <GameContainer Words="@_currentWordList" GridSize="@_currentGridSize" OnMenu="GoToMenu" />
+    }
+</div>
+
+@code {
+    private enum GameState { Menu, Playing }
+    
+    private GameState _gameState = GameState.Menu;
+    private List<string> _currentWordList = new();
+    private int _currentGridSize = 12;
+
+    private void StartGame((List<string> words, int size) options)
+    {
+        _currentWordList = options.words;
+        _currentGridSize = options.size;
+        _gameState = GameState.Playing;
+        StateHasChanged();
+    }
+
+    private void GoToMenu()
+    {
+        _gameState = GameState.Menu;
+        StateHasChanged();
+    }
+}

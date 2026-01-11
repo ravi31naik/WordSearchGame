@@ -1,0 +1,224 @@
+@using Microsoft.AspNetCore.Components.Web
+
+<div class="main-menu">
+    <h1>Word Search</h1>
+    <p class="subtitle">Select a category or create your own!</p>
+
+    <div class="menu-section">
+        <h2>Settings</h2>
+        <div class="setting-row">
+            <label>Grid Size: <strong>@_gridSize x @_gridSize</strong></label>
+            <input type="range" min="8" max="12" step="1" @bind="_gridSize" @bind:event="oninput" />
+        </div>
+    </div>
+
+    <div class="menu-section">
+        <h2>Categories</h2>
+        <div class="category-grid">
+            <button class="menu-btn" @onclick="@(() => StartCategory("Animals"))">🦁 Animals</button>
+            <button class="menu-btn" @onclick="@(() => StartCategory("Technology"))">💻 Technology</button>
+            <button class="menu-btn" @onclick="@(() => StartCategory("Food"))">🍕 Food</button>
+            <button class="menu-btn" @onclick="@(() => StartCategory("Countries"))">🌎 Countries</button>
+        </div>
+    </div>
+
+    <div class="menu-section">
+        <h2>Custom Game</h2>
+        <textarea @bind="_customInput" placeholder="Enter words separated by commas or new lines..."></textarea>
+        
+        @if (!string.IsNullOrEmpty(_validationMessage))
+        {
+            <div class="validation-message">
+                @_validationMessage
+            </div>
+        }
+
+        <button class="menu-btn primary" @onclick="StartCustom" disabled="@string.IsNullOrWhiteSpace(_customInput)">
+            ▶ Play Custom
+        </button>
+    </div>
+</div>
+
+<style>
+    .main-menu {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        height: 100vh;
+        gap: 1.5rem; /* Reduced gap to fit more */
+        background-color: #f5f6fa;
+        color: #2f3640;
+        font-family: 'Courier New', Courier, monospace;
+        text-align: center;
+    }
+
+    /* ... subtitle ... */
+    .subtitle {
+        color: #7f8fa6;
+        margin-top: -1.5rem;
+    }
+
+    .menu-section {
+        background: white;
+        padding: 1.5rem;
+        border-radius: 8px;
+        box-shadow: 4px 4px 0px rgba(0,0,0,0.1);
+        border: 1px solid #dcdde1;
+        width: 90%;
+        max-width: 400px;
+    }
+    
+    .setting-row {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+    }
+    
+    input[type=range] {
+        width: 100%;
+        cursor: pointer;
+    }
+
+    /* ... existing styles ... */
+    .menu-section h2 {
+        margin-top: 0;
+        font-size: 1.2rem;
+        margin-bottom: 1rem;
+        color: #353b48;
+    }
+
+    .category-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 10px;
+    }
+
+    .menu-btn {
+        padding: 1rem;
+        border: 1px solid #dcdde1;
+        background: white;
+        border-radius: 4px;
+        cursor: pointer;
+        font-family: inherit;
+        font-weight: bold;
+        transition: all 0.2s;
+        box-shadow: 2px 2px 0px rgba(0,0,0,0.05);
+    }
+
+    .menu-btn:hover {
+        transform: translateY(-2px);
+        box-shadow: 4px 4px 0px rgba(0,0,0,0.1);
+        background: #fbfbfb;
+    }
+
+    .menu-btn:active {
+        transform: translateY(0);
+        box-shadow: inset 1px 1px 2px rgba(0,0,0,0.1);
+    }
+
+    .menu-btn.primary {
+        background-color: #74b9ff;
+        color: white;
+        border-color: #74b9ff;
+        width: 100%;
+        margin-top: 10px;
+    }
+    
+    .menu-btn.primary:hover {
+        background-color: #0984e3;
+    }
+
+    textarea {
+        width: 100%;
+        height: 100px;
+        margin-bottom: 10px;
+        padding: 10px;
+        border: 1px solid #dcdde1;
+        border-radius: 4px;
+        font-family: inherit;
+        resize: vertical;
+    }
+
+    .validation-message {
+        color: #e74c3c;
+        font-size: 0.9rem;
+        margin-top: 10px;
+        padding: 8px;
+        background: #fadbd8;
+        border-radius: 4px;
+        text-align: left;
+    }
+</style>
+
+@code {
+    [Parameter] public EventCallback<(List<string> Words, int Size)> OnGameStart { get; set; }
+
+    private string _customInput = "";
+    private string _validationMessage = "";
+    private int _gridSize = 12;
+
+    private readonly Dictionary<string, List<string>> _categories = new()
+    {
+        { "Animals", new() { "LION", "TIGER", "ZEBRA", "PANDA", "KOALA", "EAGLE", "SHARK", "WHALE", "WOLF", "FOX", "BEAR", "HAWK" } },
+        { "Technology", new() { "PIXEL", "DATA", "WIFI", "CYBER", "ROBOT", "LASER", "CODE", "CLOUD", "MOUSE", "SCREEN", "LOGIC" } },
+        { "Food", new() { "PIZZA", "TACO", "SUSHI", "CAKE", "PASTA", "BURGER", "SALAD", "BREAD", "FRUIT", "CANDY", "SOUP" } },
+        { "Countries", new() { "JAPAN", "ITALY", "EGYPT", "BRAZIL", "INDIA", "CHINA", "SPAIN", "KENYA", "CHILE", "USA", "PERU" } }
+    };
+
+    private async Task StartCategory(string category)
+    {
+        if (_categories.TryGetValue(category, out var words))
+        {
+             // Filter system words to match grid size
+             var validWords = words.Where(w => w.Length <= _gridSize).ToList();
+             if (validWords.Any())
+             {
+                await OnGameStart.InvokeAsync((validWords, _gridSize));
+             }
+        }
+    }
+
+    private async Task StartCustom()
+    {
+        if (string.IsNullOrWhiteSpace(_customInput)) return;
+        
+        _validationMessage = "";
+
+        var rawWords = _customInput
+            .Split(new[] { ',', '\n', '\r' }, StringSplitOptions.RemoveEmptyEntries)
+            .Select(w => w.Trim().ToUpperInvariant())
+            .ToList();
+
+        var validWords = new List<string>();
+        var rejectedWords = new List<string>();
+
+        foreach (var word in rawWords)
+        {
+            if (word.Length >= 3 && word.Length <= _gridSize)
+            {
+                validWords.Add(word);
+            }
+            else
+            {
+                rejectedWords.Add(word);
+            }
+        }
+
+        if (rejectedWords.Any())
+        {
+            var examples = string.Join(", ", rejectedWords.Take(3));
+            var suffix = rejectedWords.Count > 3 ? "..." : "";
+            _validationMessage = $"⚠️ Excluded {rejectedWords.Count} word(s) (must be 3-{_gridSize} letters): {examples}{suffix}";
+        }
+
+        if (validWords.Any())
+        {
+             await OnGameStart.InvokeAsync((validWords, _gridSize));
+        }
+        else if (rejectedWords.Any())
+        {
+            _validationMessage = "❌ No valid words found. Check word lengths.";
+        }
+    }
+}

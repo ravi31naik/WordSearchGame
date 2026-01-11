@@ -1,0 +1,249 @@
+@using WordSearchGame.Core.Models
+@using WordSearchGame.Core.Enums
+@using Microsoft.AspNetCore.Components.Web
+
+<div class="game-board" @ref="_boardElement" 
+     @onpointerup="EndSelection" 
+     @onpointerleave="EndSelection">
+     
+    <!-- SVG Overlay for Rounded Highlights -->
+    <svg class="grid-overlay" viewBox="0 0 @Grid.Columns @Grid.Rows" preserveAspectRatio="none">
+        @foreach (var word in FoundWords)
+        {
+            <line x1="@(word.Start.Column + 0.5)" y1="@(word.Start.Row + 0.5)" 
+                  x2="@(word.End.Column + 0.5)" y2="@(word.End.Row + 0.5)" 
+                  stroke="@word.Color" stroke-width="0.7" class="highlight-line" />
+        }
+        
+        @if (_isSelecting && _startSelection != null && _currentSelection != null)
+        {
+                <line x1="@(_startSelection.Column + 0.5)" y1="@(_startSelection.Row + 0.5)" 
+                    x2="@(_currentSelection.Column + 0.5)" y2="@(_currentSelection.Row + 0.5)" 
+                    stroke="#74b9ff" stroke-width="0.7" class="highlight-line" />
+        }
+    </svg>
+
+    @for (int r = 0; r < Grid.Rows; r++)
+    {
+        <div class="row">
+            @for (int c = 0; c < Grid.Columns; c++)
+            {
+                var cell = Grid.Cells[r, c];
+                <div class="@GetCellClasses(cell)" 
+                        data-row="@r" 
+                        data-col="@c"
+                        @onpointerdown="@(e => StartSelection(cell, e))"
+                        @onpointerenter="@(e => UpdateSelection(cell, e))">
+                    @cell.Character
+                </div>
+            }
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter] public Grid Grid { get; set; } = default!;
+    [Parameter] public List<Word> Words { get; set; } = new();
+    [Parameter] public List<Word> FoundWords { get; set; } = new();
+    [Parameter] public EventCallback<Word> OnWordFound { get; set; }
+
+    private ElementReference _boardElement;
+    private Coordinates? _startSelection;
+    private Coordinates? _currentSelection;
+    private bool _isSelecting = false;
+
+    [Inject] public IJSRuntime JS { get; set; } = default!;
+
+    private async Task StartSelection(Cell cell, PointerEventArgs e)
+    {
+        if (e.Button == 0) // Left click / Touch
+        {
+            _isSelecting = true;
+            _startSelection = cell.Position;
+            _currentSelection = cell.Position;
+            
+            // Critical for drag-over to work on touch/touchpad:
+            // Release implicit pointer capture so subsequent 'enter' events fire on other cells.
+            try
+            {
+                await JS.InvokeVoidAsync("window.game.releaseCaptureByRowCol", cell.Position.Row, cell.Position.Column, e.PointerId); 
+            }
+            catch (Exception)
+            {
+                // Log error if needed, but don't crash
+            }
+            
+            StateHasChanged();
+        }
+    }
+
+    private void UpdateSelection(Cell cell, PointerEventArgs e)
+    {
+        // e.Buttons is a bitmask: 1 = primary button (left mouse/touch)
+        if (_isSelecting && _startSelection != null && (e.Buttons & 1) == 1)
+        {
+            var target = cell.Position;
+            var start = _startSelection; // Explicitly use the non-nullable local var for math
+            
+            // Logic to snap to nearest valid axis (Horizontal, Vertical, Diagonal)
+            int dr = target.Row - start.Row;
+            int dc = target.Column - start.Column;
+            
+            // If basically same point, just update
+            if (dr == 0 && dc == 0) 
+            {
+                if (_currentSelection != target) { _currentSelection = target; StateHasChanged(); }
+                return;
+            }
+
+            // Determine primary axis
+            // Horizontal: abs(dr) is small
+            // Vertical: abs(dc) is small
+            // Diagonal: abs(|dr| - |dc|) is small
+            
+            Coordinates snapped;
+            
+            if (Math.Abs(dr) < Math.Abs(dc) / 2.0) // Horizontal-ish
+            {
+                snapped = new Coordinates(start.Row, target.Column);
+            }
+            else if (Math.Abs(dc) < Math.Abs(dr) / 2.0) // Vertical-ish
+            {
+                snapped = new Coordinates(target.Row, start.Column);
+            }
+            else // Diagonal-ish
+            {
+                // Force 1:1 ratio
+                int signR = Math.Sign(dr);
+                int signC = Math.Sign(dc);
+                int dist = Math.Max(Math.Abs(dr), Math.Abs(dc));
+                
+                // Constrain distance to stay within bounds
+                // We need:
+                // 0 <= start.Row + dist*signR < Rows
+                // 0 <= start.Column + dist*signC < Cols
+                
+                // Check Row bounds
+                if (signR > 0) dist = Math.Min(dist, Grid.Rows - 1 - start.Row);
+                else if (signR < 0) dist = Math.Min(dist, start.Row);
+                
+                // Check Col bounds
+                if (signC > 0) dist = Math.Min(dist, Grid.Columns - 1 - start.Column);
+                else if (signC < 0) dist = Math.Min(dist, start.Column);
+
+                snapped = new Coordinates(start.Row + dist * signR, start.Column + dist * signC);
+            }
+
+            // For Horizontal/Vertical, simple clamping works because changing length doesn't break linearity
+            if (snapped.Row != start.Row && snapped.Column != start.Column)
+            {
+                // Verify diagonal again just in case (should be guaranteed by logic above)
+                if (Math.Abs(snapped.Row - start.Row) != Math.Abs(snapped.Column - start.Column))
+                {
+                    // Fallback to start if math failed (shouldn't happen)
+                     snapped = start;
+                }
+            }
+            else
+            {
+                 // Clamp H/V safely
+                 snapped = new Coordinates(
+                    Math.Clamp(snapped.Row, 0, Grid.Rows - 1),
+                    Math.Clamp(snapped.Column, 0, Grid.Columns - 1)
+                );
+            }
+            
+            if (_currentSelection != snapped)
+            {
+                _currentSelection = snapped;
+                StateHasChanged();
+            }
+        }
+    }
+
+    private void EndSelection()
+    {
+        if (_isSelecting && _startSelection != null && _currentSelection != null)
+        {
+            CheckSelection();
+        }
+        _isSelecting = false;
+        _startSelection = null;
+        _currentSelection = null;
+        StateHasChanged();
+    }
+
+    private bool IsCellSelected(Cell cell)
+    {
+        if (!_isSelecting || _startSelection == null || _currentSelection == null) return false;
+        
+        return IsOnLine(_startSelection, _currentSelection, cell.Position);
+    }
+
+    private bool IsCellFound(Cell cell)
+    {
+        foreach (var word in FoundWords)
+        {
+                if (IsOnLine(word.Start, word.End, cell.Position)) return true;
+        }
+        return false;
+    }
+
+    private void CheckSelection()
+    {
+        if (_startSelection == null || _currentSelection == null) return;
+
+        foreach (var word in Words)
+        {
+            if (word.IsFound) continue;
+            
+            bool matchForward = word.Start == _startSelection && word.End == _currentSelection;
+            bool matchReverse = word.Start == _currentSelection && word.End == _startSelection;
+
+            if (matchForward || matchReverse)
+            {
+                OnWordFound.InvokeAsync(word);
+                return;
+            }
+        }
+    }
+
+    private string GetCellClasses(Cell cell)
+    {
+        var classes = new List<string> { "cell" };
+        if (IsCellSelected(cell)) classes.Add("selected");
+        if (IsCellFound(cell)) classes.Add("found");
+        return string.Join(" ", classes);
+    }
+
+    private bool IsOnLine(Coordinates start, Coordinates end, Coordinates point)
+    {
+        // Check bounds
+        int minR = Math.Min(start.Row, end.Row);
+        int maxR = Math.Max(start.Row, end.Row);
+        int minC = Math.Min(start.Column, end.Column);
+        int maxC = Math.Max(start.Column, end.Column);
+
+        if (point.Row < minR || point.Row > maxR || point.Column < minC || point.Column > maxC)
+            return false;
+
+        // Check linearity
+        int dr = end.Row - start.Row;
+        int dc = end.Column - start.Column;
+
+        if (dr == 0) // Horizontal
+            return point.Row == start.Row;
+        
+        if (dc == 0) // Vertical
+            return point.Column == start.Column;
+
+        if (Math.Abs(dr) == Math.Abs(dc)) // Diagonal
+        {
+            int pr = point.Row - start.Row;
+            int pc = point.Column - start.Column;
+            return(pr * dc == pc * dr);
+        }
+
+        return false;
+    }
+}

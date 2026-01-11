@@ -1,0 +1,206 @@
+* {
+    box-sizing: border-box;
+}
+
+.game-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    font-family: 'Courier New', Courier, monospace;
+    /* Typewriter font */
+    padding: 5px;
+    max-width: 800px;
+    margin: 0 auto;
+    height: 100vh;
+    overflow: hidden;
+    background-color: #f5f6fa;
+    /* Paper textured background */
+    color: #2f3640;
+}
+
+.game-header {
+    display: flex;
+    justify-content: space-between;
+    width: 100%;
+    align-items: center;
+    margin-bottom: 5px;
+    /* Further reduced */
+    flex-shrink: 0;
+    /* Don't shrink header */
+}
+
+.game-layout {
+    display: flex;
+    flex-direction: column;
+    /* Stack Top-to-Bottom */
+    align-items: center;
+    gap: 8px;
+    /* Further reduced */
+    width: 100%;
+    flex: 1;
+    /* Take remaining space */
+    overflow: hidden;
+    /* Prevent internal scrolling */
+    justify-content: center;
+    /* Center vertically */
+    min-height: 0;
+    /* Allow flex shrinking */
+}
+
+.game-board {
+    display: flex;
+    flex-direction: column;
+    /* Consistent Spacing: Gap = 4px, Padding = 2px (Half Gap) */
+    /* This ensures exact alignment with uniform 10x10 SVG grid */
+    gap: 4px;
+    padding: 2px;
+
+    background-color: transparent;
+    border-radius: 0;
+    user-select: none;
+    touch-action: none;
+
+    /* Dynamic sizing */
+    height: calc(100vh - 140px);
+    max-height: 600px;
+    aspect-ratio: 1;
+    width: auto;
+
+    flex-shrink: 1;
+    margin: 0 auto;
+
+    /* ISOMETRIC TRANSFORM REMOVED for better playability */
+    /* transform: rotateX(60deg) rotateZ(-45deg); */
+    /* transform-style: preserve-3d; */
+    /* padding: 10px; Removed to fix SVG alignment */
+    position: relative;
+    /* Anchor for SVG overlay */
+}
+
+/* SVG Overlay for rounded highlights */
+.grid-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    /* Let clicks pass through */
+    z-index: 5;
+    /* Above background, below text if possible, or distinct layer */
+}
+
+.highlight-line {
+    stroke-linecap: round;
+    /* The "Rounded Corners" pill effect */
+    transition: all 0.2s ease;
+    opacity: 0.6;
+    /* Semi-transparent like the screenshot */
+    mix-blend-mode: multiply;
+    /* Blending for overlapping words */
+}
+
+.row {
+    display: flex;
+    flex: 1;
+    width: 100%;
+    gap: 4px;
+    /* Horizontal spacing */
+}
+
+.cell {
+    flex: 1;
+    aspect-ratio: 1;
+    background-color: #ffffff;
+    /* Crisp white card */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: bold;
+    cursor: pointer;
+    border-radius: 2px;
+    /* Sharp corners */
+    margin: 0;
+    /* Removing margin in favor of gap */
+    transition: transform 0.2s, box-shadow 0.2s, background-color 0.1s;
+    user-select: none;
+    font-size: clamp(1rem, 3.5vw, 2rem);
+    touch-action: none;
+    color: #2f3640;
+    /* Ink color */
+    border: 1px solid #dcdde1;
+    /* Thin pencil border */
+
+    /* Subtle Paper Shadow */
+    box-shadow: 2px 2px 0px rgba(0, 0, 0, 0.1);
+    position: relative;
+}
+
+.cell:hover {
+    background-color: #fbfbfb;
+    /* transform: translateY(-1px); Remove transform to keep alignment with lines */
+    box-shadow: 3px 3px 0px rgba(0, 0, 0, 0.15);
+    /* z-index: 10; Remove z-index to stay below overlay */
+}
+
+.cell.selected {
+    /* Background handled by SVG */
+    /* background-color: #74b9ff; */
+    color: #2f3640;
+    /* Keep dark text! */
+    border-color: #74b9ff;
+    /* transform: translateY(-2px); Remove transform */
+    /* z-index: 20; Remove z-index */
+}
+
+.cell.found {
+    /* background-color: #dadfe6; */
+    color: #57606f;
+    /* Keep text color */
+    /* box-shadow: inset 0 0 5px rgba(0,0,0,0.05); */
+    border-color: #ced6e0;
+}
+
+.word-list {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    /* Exactly 5 columns */
+    gap: 5px;
+    /* Reduced gap */
+    width: 100%;
+    max-width: 600px;
+    /* Match grid width */
+    text-align: center;
+    flex-shrink: 0;
+    /* Don't shrink word list */
+}
+
+.word-item {
+    font-size: 0.9rem;
+    /* Smaller font */
+    padding: 1px 3px;
+    /* Reduced padding */
+    white-space: nowrap;
+    /* Prevent word wrapping within item */
+}
+
+.word-item.found {
+    text-decoration: line-through;
+    color: #a4b0be;
+    /* Faded ink */
+    text-decoration-color: #ff6b6b;
+    /* Red pen strike */
+}
+
+.game-over-overlay {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: rgba(255, 255, 255, 0.95);
+    padding: 30px;
+    border-radius: 12px;
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+    text-align: center;
+    z-index: 1000;
+}

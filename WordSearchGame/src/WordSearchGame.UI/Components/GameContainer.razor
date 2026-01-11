@@ -1,0 +1,93 @@
+@using WordSearchGame.Core.Services
+@inject IGameGenerator GameGenerator
+
+<div class="game-container">
+    @if (_grid == null)
+    {
+        <p>Loading...</p>
+    }
+    else
+    {
+        <div class="game-header">
+            <h3>Word Search</h3>
+            <div class="controls">
+                <button @onclick="NewGame" title="Reshuffle Board">🔄 Reset</button>
+                <button @onclick="OnMenu" title="Back to Menu">🏠 Menu</button>
+            </div>
+        </div>
+
+        <div class="game-layout">
+            <WordList Words="_words" />
+
+            <GameBoard Grid="_grid" 
+                       Words="_words"
+                       FoundWords="_foundWords" 
+                       OnWordFound="HandleWordFound" />
+        </div>
+
+        @if (_isGameOver)
+        {
+            <div class="game-over-overlay">
+                <h2>Level Complete!</h2>
+                <button @onclick="NewGame">Play Again</button>
+            </div>
+        }
+    }
+</div>
+
+@code {
+    [Parameter] public List<string>? Words { get; set; }
+    [Parameter] public int GridSize { get; set; } = 12;
+    [Parameter] public EventCallback OnMenu { get; set; }
+
+    private Grid? _grid;
+    private List<Word> _words = new();
+    private List<Word> _foundWords = new();
+    private bool _isGameOver;
+
+    protected override void OnInitialized()
+    {
+        NewGame();
+    }
+
+    private void NewGame()
+    {
+        // Use provided words or fallback
+        var wordList = Words ?? new List<string> { 
+            "BLAZOR", "MAUI", "DOTNET", "ANDROID", "IOS", 
+            "CSHARP", "MICROSOFT", "GOOGLE", "ANTIGRAVITY" 
+        };
+        
+        // Use configured Grid Size
+        var result = GameGenerator.GenerateLevel(GridSize, GridSize, wordList);
+        _grid = result.Grid;
+        _words = result.Words;
+        _foundWords.Clear();
+        _isGameOver = false;
+    }
+
+    private void HandleWordFound(Word word)
+    {
+        if (!_foundWords.Any(w => w.Text == word.Text))
+        {
+            // Assign a random pastel color
+            var colors = new[] { "#ffadad", "#ffd6a5", "#fdffb6", "#caffbf", "#9bf6ff", "#a0c4ff", "#bdb2ff", "#ffc6ff" };
+            var random = new Random();
+            word.Color = colors[random.Next(colors.Length)];
+            
+            _foundWords = new List<Word>(_foundWords) { word };
+            word.IsFound = true; // This is crucial for WordList and GameBoard highlighting
+            CheckGameOver();
+            StateHasChanged();
+            Console.WriteLine($"[DEBUG] Word found: {word.Text}, Assigned Color: {word.Color}");
+        }
+    }
+
+    private void CheckGameOver()
+    {
+        if (_foundWords.Count == _words.Count)
+        {
+            _isGameOver = true;
+        }
+    }
+}

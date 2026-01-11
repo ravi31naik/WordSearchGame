@@ -1,0 +1,14 @@
+@using WordSearchGame.Core.Models
+
+<div class="word-list">
+    @foreach (var word in Words)
+    {
+        <div class="word-item @(word.IsFound ? "found" : "")">
+            @word.Text
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter] public List<Word> Words { get; set; } = new();
+}

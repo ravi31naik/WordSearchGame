@@ -1,0 +1,21 @@
+# Build Results
+[Bb]in/
+[Oo]bj/
+
+# Visual Studio / IDES
+.vs/
+.vscode/
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+
+# NuGet
+*.nupkg
+*.snupkg
+packages/
+!packages/build/
+
+# OS Generated
+.DS_Store
+Thumbs.db
