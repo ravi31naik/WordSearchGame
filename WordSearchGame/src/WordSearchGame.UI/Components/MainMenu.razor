@@ -44,8 +44,9 @@
         display: flex;
         flex-direction: column;
         align-items: center;
-        justify-content: center;
-        height: 100vh;
+        justify-content: flex-start; /* Prevents top clipping on short screens */
+        min-height: 100vh;
+        padding: max(2rem, 5vh) 1rem 2rem 1rem;
         gap: 1.5rem; /* Reduced gap to fit more */
         background-color: #f5f6fa;
         color: #2f3640;

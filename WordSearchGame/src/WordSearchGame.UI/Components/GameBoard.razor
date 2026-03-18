@@ -7,19 +7,37 @@
      @onpointerleave="EndSelection">
      
     <!-- SVG Overlay for Rounded Highlights -->
-    <svg class="grid-overlay" viewBox="0 0 @Grid.Columns @Grid.Rows" preserveAspectRatio="none">
+    @{
+        var gap = 0.087; // Ratio of 4px gap to approx 46px cell
+        var pad = 0.043; // Ratio of 2px padding
+        var viewBoxW = Grid.Columns + (Grid.Columns - 1) * gap + 2 * pad;
+        var viewBoxH = Grid.Rows + (Grid.Rows - 1) * gap + 2 * pad;
+    }
+    <svg class="grid-overlay" viewBox="0 0 @viewBoxW @viewBoxH" preserveAspectRatio="none">
         @foreach (var word in FoundWords)
         {
-            <line x1="@(word.Start.Column + 0.5)" y1="@(word.Start.Row + 0.5)" 
-                  x2="@(word.End.Column + 0.5)" y2="@(word.End.Row + 0.5)" 
-                  stroke="@word.Color" stroke-width="0.7" class="highlight-line" />
+            var x1 = pad + word.Start.Column * (1 + gap) + 0.5;
+            var y1 = pad + word.Start.Row * (1 + gap) + 0.5;
+            var x2 = pad + word.End.Column * (1 + gap) + 0.5;
+            var y2 = pad + word.End.Row * (1 + gap) + 0.5;
+            
+            <line x1="@x1" y1="@y1" x2="@x2" y2="@y2" 
+                  stroke="@word.Color" stroke-width="0.7" 
+                  class="highlight-line found-animation"
+                  style="--line-length: @(GetLineLength(word.Start, word.End) * (1 + gap));" />
         }
         
         @if (_isSelecting && _startSelection != null && _currentSelection != null)
         {
-                <line x1="@(_startSelection.Column + 0.5)" y1="@(_startSelection.Row + 0.5)" 
-                    x2="@(_currentSelection.Column + 0.5)" y2="@(_currentSelection.Row + 0.5)" 
-                    stroke="#74b9ff" stroke-width="0.7" class="highlight-line" />
+            var x1 = pad + _startSelection.Column * (1 + gap) + 0.5;
+            var y1 = pad + _startSelection.Row * (1 + gap) + 0.5;
+            var x2 = pad + _currentSelection.Column * (1 + gap) + 0.5;
+            var y2 = pad + _currentSelection.Row * (1 + gap) + 0.5;
+            
+            <line x1="@x1" y1="@y1" x2="@x2" y2="@y2" 
+                  stroke="#74b9ff" stroke-width="0.7" 
+                  class="highlight-line drawing"
+                  style="--line-length: @(GetLineLength(_startSelection, _currentSelection) * (1 + gap));" />
         }
     </svg>
 
@@ -29,12 +47,15 @@
             @for (int c = 0; c < Grid.Columns; c++)
             {
                 var cell = Grid.Cells[r, c];
+                var row = r;
+                var col = c;
                 <div class="@GetCellClasses(cell)" 
-                        data-row="@r" 
-                        data-col="@c"
+                        data-row="@row" 
+                        data-col="@col"
+                        style="@GetCellStyles(row, col)"
                         @onpointerdown="@(e => StartSelection(cell, e))"
                         @onpointerenter="@(e => UpdateSelection(cell, e))">
-                    @cell.Character
+                    <span class="cell-text">@cell.Character</span>
                 </div>
             }
         </div>
@@ -53,6 +74,19 @@
     private bool _isSelecting = false;
 
     [Inject] public IJSRuntime JS { get; set; } = default!;
+
+    private Grid? _lastGrid;
+    private bool _isNewBoard = true;
+
+    protected override void OnParametersSet()
+    {
+        if (Grid != _lastGrid)
+        {
+            _lastGrid = Grid;
+            _isNewBoard = true;
+            _ = Task.Delay(1500).ContinueWith(_ => { _isNewBoard = false; InvokeAsync(StateHasChanged); });
+        }
+    }
 
     private async Task StartSelection(Cell cell, PointerEventArgs e)
     {
@@ -211,9 +245,27 @@
     private string GetCellClasses(Cell cell)
     {
         var classes = new List<string> { "cell" };
+        if (_isNewBoard) classes.Add("appearing");
         if (IsCellSelected(cell)) classes.Add("selected");
-        if (IsCellFound(cell)) classes.Add("found");
+        if (IsCellFound(cell)) 
+        {
+            classes.Add("found");
+            classes.Add("pop-found");
+        }
         return string.Join(" ", classes);
+    }
+
+    private string GetCellStyles(int r, int c)
+    {
+        var delay = (r * Grid.Columns + c) * 0.01;
+        return $"animation-delay: {delay:F2}s;";
+    }
+
+    private double GetLineLength(Coordinates start, Coordinates end)
+    {
+        // SVG units are grid cells. 
+        // The line is drawn between centers, so dist is just grid distance.
+        return Math.Sqrt(Math.Pow(end.Column - start.Column, 2) + Math.Pow(end.Row - start.Row, 2));
     }
 
     private bool IsOnLine(Coordinates start, Coordinates end, Coordinates point)

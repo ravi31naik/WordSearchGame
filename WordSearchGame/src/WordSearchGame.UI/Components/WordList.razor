@@ -1,6 +1,6 @@
 @using WordSearchGame.Core.Models
 
-<div class="word-list">
+<div class="word-list @GetPositionClass()">
     @foreach (var word in Words)
     {
         <div class="word-item @(word.IsFound ? "found" : "")">
@@ -11,4 +11,10 @@
 
 @code {
     [Parameter] public List<Word> Words { get; set; } = new();
+    [Parameter] public string Position { get; set; } = "Top";
+
+    private string GetPositionClass()
+    {
+        return Position is "Left" or "Right" ? "list-vertical" : "list-horizontal";
+    }
 }
