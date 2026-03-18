@@ -11,13 +11,28 @@
         <div class="game-header">
             <h3>Word Search</h3>
             <div class="controls">
+                <select @bind="ListPosition" title="List Position">
+                    <option value="Top">List Top</option>
+                    <option value="Bottom">List Bottom</option>
+                    <option value="Left">List Left</option>
+                    <option value="Right">List Right</option>
+                </select>
                 <button @onclick="NewGame" title="Reshuffle Board">🔄 Reset</button>
                 <button @onclick="OnMenu" title="Back to Menu">🏠 Menu</button>
             </div>
         </div>
 
-        <div class="game-layout">
-            <WordList Words="_words" />
+        <div class="game-layout" style="flex-direction: @GetLayoutFlexDirection();">
+            <WordList Words="_words" Position="@ListPosition" />
+            
+            @if (ListPosition == "Left" || ListPosition == "Right")
+            {
+                <div class="separator vertical-separator"></div>
+            }
+            else
+            {
+                <div class="separator horizontal-separator"></div>
+            }
 
             <GameBoard Grid="_grid" 
                        Words="_words"
@@ -44,6 +59,20 @@
     private List<Word> _words = new();
     private List<Word> _foundWords = new();
     private bool _isGameOver;
+    private string ListPosition { get; set; } = "Top";
+    private ColorSelector _colorSelector = new();
+
+    private string GetLayoutFlexDirection()
+    {
+        return ListPosition switch
+        {
+            "Top" => "column",
+            "Bottom" => "column-reverse",
+            "Left" => "row",
+            "Right" => "row-reverse",
+            _ => "column"
+        };
+    }
 
     protected override void OnInitialized()
     {
@@ -64,16 +93,15 @@
         _words = result.Words;
         _foundWords.Clear();
         _isGameOver = false;
+        _colorSelector.Reset();
     }
 
     private void HandleWordFound(Word word)
     {
-        if (!_foundWords.Any(w => w.Text == word.Text))
+        if (!_foundWords.Contains(word))
         {
-            // Assign a random pastel color
-            var colors = new[] { "#ffadad", "#ffd6a5", "#fdffb6", "#caffbf", "#9bf6ff", "#a0c4ff", "#bdb2ff", "#ffc6ff" };
-            var random = new Random();
-            word.Color = colors[random.Next(colors.Length)];
+            // Assign a visually distinct pastel color
+            word.Color = _colorSelector.GetNextColor();
             
             _foundWords = new List<Word>(_foundWords) { word };
             word.IsFound = true; // This is crucial for WordList and GameBoard highlighting
